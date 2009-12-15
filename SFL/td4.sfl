@@ -1,0 +1,87 @@
+/*
+ SFL version of TD4 (Toriaezu Dousa surudakeno 4bit CPU)
+
+ (C)Copyright Kohei Sekine 2009.
+
+ URL: http://d.hatena.ne.jp/eggman/
+ */
+
+declare td4 {
+	input  pin<4>;
+	input  min<8>;
+	output pout<4>;
+	output madr<4>;
+}
+
+module td4 {
+	input  pin<4>;		// input port
+	input  min<8>;		// rom data
+
+	output pout<4>;		// output port
+	output madr<4>;		// rom address
+
+	reg_wr a<4>;		// A register
+	reg_wr b<4>;		// B register
+	reg_wr p<4>;		// output port register
+	reg_wr pc<4>;		// program counter;
+	reg_wr c;			// carry flag
+
+	sel op<8>;			// <7:4>:opcode, <3:0>:operand
+    sel data_sel<2>;	// ALU input data select
+    sel sel_out<4>;		// ALU input data
+	sel alu_out<5>;		// ALU output
+	sel load<4>;		// load select
+	sel n_sel_a, n_sel_b, n_sel_p, n_sel_j;		// alias of load select
+
+	// wire
+	op = min;			// read op from ROM
+	madr = pc;			// output address of ROM
+	pout = p;			// assgin output port
+
+	n_sel_a = load<3>;	// select A register
+	n_sel_b = load<2>;	// select B register
+	n_sel_p = load<1>;	// select output port register 
+	n_sel_j = load<0>;	// select jump
+
+	// decode
+	any{
+		op<7:4>==0x0 : par{ data_sel = 0b00; load = 0b0111; }	//ADD A,Im
+		op<7:4>==0x1 : par{ data_sel = 0b01; load = 0b0111; }	//MOV A,B
+		op<7:4>==0x2 : par{ data_sel = 0b10; load = 0b0111; }	//IN  A
+		op<7:4>==0x3 : par{ data_sel = 0b11; load = 0b0111; }	//MOV A,Im
+		op<7:4>==0x4 : par{ data_sel = 0b00; load = 0b1011; }	//MOV B,A
+		op<7:4>==0x5 : par{ data_sel = 0b01; load = 0b1011; }	//ADD B,Im
+		op<7:4>==0x6 : par{ data_sel = 0b10; load = 0b1011; }	//IN  B
+		op<7:4>==0x7 : par{ data_sel = 0b11; load = 0b1011; }	//MOV B,Im
+		op<7:4>==0x9 : par{ data_sel = 0b01; load = 0b1101; }	//OUT B
+		op<7:4>==0xb : par{ data_sel = 0b11; load = 0b1101; }	//OUT Im
+		op<7:4>==0xe : any{										//JNC Im
+			c==0b0 :   par{ data_sel = 0b11; load = 0b1110; }		// jump
+			c==0b1 :                         load = 0b1111;			// don't jump
+					   }
+		op<7:4>==0xf : par{ data_sel = 0b11; load = 0b1110; }	//JMP Im
+	}
+
+	// data selecter for ALU input
+	any{
+		data_sel==0b00 : sel_out = a;			// select A register
+		data_sel==0b01 : sel_out = b;			// select B register
+		data_sel==0b10 : sel_out = pin;			// select input port
+		data_sel==0b11 : sel_out = 0x0;			// select Im
+	}
+
+	// ALU
+	alu_out = (0b0||sel_out) + (0b0||op<3:0>);
+
+	// set register
+	any{
+		n_sel_a==0b0 : a := alu_out<3:0>;		// set A register
+		n_sel_b==0b0 : b := alu_out<3:0>;		// set B register
+		n_sel_p==0b0 : p := alu_out<3:0>;		// set output port register
+	}
+	any{
+		n_sel_j==0b0 : pc := alu_out<3:0>;		// jump
+		n_sel_j==0b1 : pc := pc + 0b0001;		// increment PC
+	}
+	c := alu_out<4>;							// set carry flag
+}

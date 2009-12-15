@@ -1,0 +1,24 @@
+module main;
+parameter STEP=2;
+reg p_reset, m_clock; 
+wire [3:0] led; 
+board board(.p_reset(p_reset),.m_clock(m_clock),.led(led));
+initial begin
+ m_clock=0;p_reset=1;
+ #3 p_reset=0;
+ end
+initial forever #STEP m_clock = ~m_clock;
+always@(negedge m_clock)
+begin
+ #1 $display("PC:%01X: OP:%02X SEL:%01X LOAD:%01X ALU:%02X M:%02X:%02X:%02X LED:%02X",
+	board.cpu.pc, board.cpu.op, board.cpu.data_sel, board.cpu.load,
+	board.cpu.alu_out,
+        board.cpu.a,board.cpu.b,board.cpu.p, board.led);
+end
+initial begin
+$dumpfile("board.vcd");
+$dumpvars(2,board);
+$readmemh("td4.mem", board.rom.rom);
+#(STEP*500) $finish;
+end
+endmodule

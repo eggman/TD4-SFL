@@ -1,0 +1,39 @@
+declare td4 {
+	input  pin<4>;
+	input  min<8>;
+	output pout<4>;
+	output madr<4>;
+}
+
+declare rom16 interface {
+    output     datao<8> ;
+    input      adr<4> ;
+    input m_clock,p_reset;
+    instrin    rd(adr);
+}
+
+module board {
+	output led<4>;
+
+	td4     cpu;
+	rom16   rom;
+
+	rom.m_clock = ^m_clock;
+	rom.p_reset = p_reset;
+
+	led = cpu.pout;
+
+	cpu.min = rom.rd(cpu.madr).datao;
+}
+
+module rom16 {
+    output     datao<8> ;
+    input      adr<4> ;
+    instrin   rd;
+    reg dout<8>;
+    mem rom[16]<8>;
+
+    dout := rom[adr];
+
+    instruct rd datao = dout;
+}
